@@ -186,20 +186,6 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		log.Printf(tmpfolderpath+"\n")
 		log.Printf(tmpfolder1path+"\n")
 
-		var stdout, stderr bytes.Buffer
-		/*cmd := exec.Command("unzip", path,"-d",tmpfolderpath)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		err1 := cmd.Run()
-		if err1 != nil {
-			log.Fatalf("cmd.Run() failed with %s\n", err1)
-		}
-		outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
-		_ = outStr
-		//fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
-		fmt.Printf("err:\n%s\n", errStr)*/
-
 		Unzip(path,tmpfolderpath)
 		
 		log.Printf("Step 1 done\n")
@@ -281,7 +267,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 //		  log.Printf("Step 8 done\n")
 
 		//Step 9 Execute maven
-		//          var history = child_process.execSync(mavenhome + '/bin/mvn -f'+ tmpfolder1.name + '/pom.xml clean scalastyle:check test -Dmaven.test.failure.ignore=true' , { encoding: 'utf8' });
+		var stdout, stderr bytes.Buffer
 		cmd := exec.Command(mavenhome + "/mvn", "-f",tmpfolder1path+ "/pom.xml", "clean", "scalastyle:check", "test", "-Dmaven.test.failure.ignore=true" )
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
