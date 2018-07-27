@@ -27,16 +27,11 @@ import (
 	"github.com/antchfx/xmlquery"
 	"github.com/antchfx/xpath"
 	"github.com/barais/ipfilter"
-    // TODO extend with time
-	//	"github.com/jpillora/ipfilter"
 )
 
 //TODO 
 // Filter by IP and time
-
-
-
-
+// manage maven crash
 
 var fileserver http.Handler
 var login string
@@ -44,7 +39,7 @@ var pass string
 var uploadfolder string
 var mavenhome string
 var templateProjectPath string
-
+var smtpserver string
 
 func main() {
 	port := flag.String("p", "8080", "port to serve on")
@@ -56,6 +51,7 @@ func main() {
 	uploadfolderparam := flag.String("u", "upload", "path of the folder to upload file")
 	mavenhomeparam := flag.String("maven", "/opt/apache-maven-3.5.0/bin", "path to maven executable")
 	templateProjectPathparam := flag.String("templatePath", "templateProject", "path to the template project that contains tests and lib")
+	smtpserverparam := flag.String("smtpserver", "smtps.univ-rennes1.fr:587", "smtp server to use")
 	flag.Parse()
 	fileserver	= http.FileServer(http.Dir(*directory))
 	login = *paramlogin
@@ -63,7 +59,7 @@ func main() {
 	uploadfolder = *uploadfolderparam
 	mavenhome = *mavenhomeparam
 	templateProjectPath = *templateProjectPathparam
-
+	smtpserver =*smtpserverparam
 	mux := http.NewServeMux();
 
 	mux.HandleFunc("/", testCas)
@@ -352,10 +348,8 @@ func sendEmail(body string,subj string,tos string) bool{
     }
     message += "\r\n" + body
 
-    // Connect to the SMTP Server
-    servername := "smtps.univ-rennes1.fr:587"
 
-    host, _, _ := net.SplitHostPort(servername)
+    host, _, _ := net.SplitHostPort(smtpserver)
 
     auth := smtp.PlainAuth("",login, pass, host)
 
