@@ -347,32 +347,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 
 
-func getRealAddr(r *http.Request)  string {
 
-    remoteIP := ""
-    // the default is the originating ip. but we try to find better options because this is almost
-	// never the right IP
-	log.Printf(r.RemoteAddr)
-    if parts := strings.Split(r.RemoteAddr, ":"); len(parts) == 2 {
-        remoteIP = parts[0]
-    }
-    // If we have a forwarded-for header, take the address from there
-    if xff := strings.Trim(r.Header.Get("X-Forwarded-For"), ","); len(xff) > 0 {
-        addrs := strings.Split(xff, ",")
-        lastFwd := addrs[len(addrs)-1]
-        if ip := net.ParseIP(lastFwd); ip != nil {
-            remoteIP = ip.String()
-        }
-    // parse X-Real-Ip header
-    } else if xri := r.Header.Get("X-Real-Ip"); len(xri) > 0 {
-        if ip := net.ParseIP(xri); ip != nil {
-            remoteIP = ip.String()
-        }
-    }
-
-    return remoteIP
-
-}
 
 func sendEmail(body string,subj string,tos string) bool{
 	from := mail.Address{"Olivier Barais", "obarais@univ-rennes1.fr"}
