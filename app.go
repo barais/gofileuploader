@@ -169,6 +169,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			w.Header().Set("Content-Type", " text/html")
 			w.WriteHeader(200)
 			fmt.Fprint(w, "Your file must be a zip file")
+			return
 		}
 
 		tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
