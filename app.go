@@ -33,8 +33,7 @@ import (
 
 //TODO 
 // Filter by IP and time
-// Remove file from zip (using CLI)
-// Execute maven command (using CLI)
+
 
 
 
