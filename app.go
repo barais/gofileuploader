@@ -78,8 +78,8 @@ func main() {
 	var allowedScheduleO []*ipfilter.IPInterval
 	json.Unmarshal([]byte(allowedSchedule), &allowedScheduleO)
 
-	fmt.Println((allowedScheduleO[0]).AllowedIPs)
-	fmt.Println(((allowedScheduleO[0]).Lower).String())
+	//fmt.Println((allowedScheduleO[0]).AllowedIPs)
+	//fmt.Println(((allowedScheduleO[0]).Lower).String())
 
 	mux.HandleFunc("/", testCas)
 	url, _ := url.Parse(*casURL)
