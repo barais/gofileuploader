@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/thanhpk/randstr"
 
@@ -137,9 +138,10 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			break
 		}
 		token := randstr.String(24) // generate a random 16 character length string
+		timestamp := time.Now().Format("20060102150405")
 		var read int64
 		//		var p float32
-		path := uploadfolder + "/" + binding.Username + "_" + token + ".zip"
+		path := uploadfolder + "/" + binding.Username + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			return
@@ -480,7 +482,6 @@ func Unzip(src string, dest string) ([]string, error) {
 
 			// Close the file without defer to close before next iteration of loop
 			outFile.Close()
-
 			if err != nil {
 				return filenames, err
 			}
