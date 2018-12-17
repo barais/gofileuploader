@@ -36,7 +36,6 @@ import (
 )
 
 //TODO
-// Filter by IP and time
 // manage maven crash
 
 var fileserver http.Handler
@@ -98,7 +97,6 @@ func main() {
 	options := ipfilter.NewOption(allowedScheduleO)
 
 	myProtectedHandler := ipfilter.Wrap(client.Handle(mux), *options)
-	log.Println(getMail("obarais"))
 
 	log.Printf("Serving %s on HTTP port: %s\n", *directory, *port)
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+*port, myProtectedHandler))
@@ -194,14 +192,31 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		}
 
 		if buildproject {
+			/*
+				1 : Cannot createTmpFile
+				2 : Cannot copy template
+				3 : Cannot copy unzip src to template copy
+				4 : Cannot copy unzip resources to template copy
+				5 : Cannot copy list all jar files
+				6 : Cannot copy all jar files
+				7 : Cannot generate maven pom.xml
+				8 : Cannot execute maven
+				9 : Cannot load surfire reports
+				10 : Cannot load scalastype report
+				11 : Cannot send an email
+			*/
+			resultNumber := 0
 
 			tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
 			if err != nil {
-				log.Fatal(err)
+				resultNumber = 1
+				log.Print(err)
+
 			}
 			tmpfolder1, err := ioutil.TempDir("/tmp", binding.Username)
 			if err != nil {
-				log.Fatal(err)
+				resultNumber = 1
+				log.Print(err)
 			}
 
 			//Step 1: Unzip upload file
@@ -218,7 +233,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			//Step 2: Copy template
 			err4 := copy.Copy(pathtmp, tmpfolder1path)
 			if err4 != nil {
-				log.Fatalf("Cannot copy %s\n", err4)
+				resultNumber = 2
+				log.Printf("Cannot copy %s\n", err4)
 			}
 			//	log.Printf("Step 2 done\n")
 
@@ -236,7 +252,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			//Step 4: Copy unzip src to template
 			err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/src/", tmpfolder1path+"/src/main/scala/")
 			if err4 != nil {
-				log.Fatalf("Cannot copy %s\n", err4)
+				resultNumber = 3
+				log.Printf("Cannot copy %s\n", err4)
 			}
 			//	log.Printf("Step 4 done\n")
 
@@ -244,7 +261,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			if _, err2 := os.Stat(tmpfolderpath + "/" + f1.Name() + "/img"); err2 == nil {
 				err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/img", tmpfolder1path+"/src/main/resources/img")
 				if err4 != nil {
-					log.Fatalf("Cannot copy %s\n", err4)
+					resultNumber = 4
+					log.Printf("Cannot copy %s\n", err4)
 				}
 				log.Printf("Step 6 done\n")
 			}
@@ -253,10 +271,13 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			//history = child_process.execSync('cp -r '+ tmpfolder.name + '/'+dirProjet+'/*.jar '+tmpfolder1.name +'/lib/' , { encoding: 'utf8' });
 			files2, err := filepath.Glob(tmpfolderpath + "/" + f1.Name() + "/*.jar")
 			if err != nil {
-				log.Fatal(err)
+				resultNumber = 5
+				log.Print(err)
 			}
 			for _, jarfile := range files2 {
-				CopyFile(jarfile, tmpfolder1path+"/lib/"+filepath.Base(jarfile))
+				if !copyFile(jarfile, tmpfolder1path+"/lib/"+filepath.Base(jarfile)) {
+					resultNumber = 6
+				}
 			}
 			//		log.Printf("Step 7 done\n")
 
@@ -265,6 +286,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			files1, err := filepath.Glob(tmpfolder1path + "/lib/*.jar")
 			if err != nil {
 				log.Fatal(err)
+				resultNumber = 5
+
 			}
 			replacement := ""
 			libn := 0
@@ -275,14 +298,16 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 			readfile, err3 := ioutil.ReadFile(tmpfolder1path + "/pom.xml")
 			if err3 != nil {
-				panic(err3)
+				resultNumber = 6
+				log.Print(err3)
 			}
 
 			newContents := strings.Replace(string(readfile), "<!--deps-->", replacement, -1)
 
 			err3 = ioutil.WriteFile(tmpfolder1path+"/pom.xml", []byte(newContents), 0)
 			if err3 != nil {
-				panic(err3)
+				resultNumber = 7
+				log.Print(err3)
 			}
 			//		  log.Printf("Step 8 done\n")
 
@@ -293,10 +318,11 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			cmd.Stderr = &stderr
 			err1 := cmd.Run()
 			if err1 != nil {
-				log.Fatalf("cmd.Run() failed with %s\n", err1)
+				resultNumber = 8
+				log.Printf("cmd.Run() failed with %s\n", err1)
 			}
-			outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
-			_ = outStr
+			_, errStr := string(stdout.Bytes()), string(stderr.Bytes())
+			//_ = outStr
 
 			//fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
 			fmt.Printf("err:\n%s\n", errStr)
@@ -313,44 +339,124 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			_ = nfailures
 			files2, err6 := filepath.Glob(tmpfolder1path + "/target/surefire-reports/*.xml")
 			if err6 != nil {
-				log.Fatal(err6)
+				resultNumber = 9
+				log.Print(err6)
 			}
 			for _, f3 := range files2 {
-				f4, _ := os.Open(f3)
-				doc, _ := xmlquery.Parse(f4)
-				expr, _ := xpath.Compile("count(//testsuite//testcase)")
+				f4, err := os.Open(f3)
+				if err != nil {
+					resultNumber = 9
+				}
+				doc, err := xmlquery.Parse(f4)
+				if err != nil {
+					resultNumber = 9
+				}
+				expr, err := xpath.Compile("count(//testsuite//testcase)")
+				if err != nil {
+					resultNumber = 9
+				}
 				ntests = ntests + int(expr.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-				expr1, _ := xpath.Compile("count(//testsuite//testcase//failure)")
+				expr1, err := xpath.Compile("count(//testsuite//testcase//failure)")
+				if err != nil {
+					resultNumber = 9
+				}
 				nfailures = nfailures + int(expr1.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-				expr2, _ := xpath.Compile("count(//testsuite//testcase//error)")
+				expr2, err := xpath.Compile("count(//testsuite//testcase//error)")
+				if err != nil {
+					resultNumber = 9
+				}
 				nerrors = nerrors + int(expr2.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-				expr3, _ := xpath.Compile("count(//testsuite//testcase//skipped)")
+				expr3, err := xpath.Compile("count(//testsuite//testcase//skipped)")
+				if err != nil {
+					resultNumber = 9
+				}
 				nskips = nskips + int(expr3.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
 
 				fmt.Printf("nbtest: %d\n", ntests)
 				_ = doc
 			}
 
-			f5, _ := os.Open(tmpfolder1path + "/scalastyle-output.xml")
-			doc1, _ := xmlquery.Parse(f5)
-			expr4, _ := xpath.Compile("count(//checkstyle//file//error[@severity='warning'])")
+			f5, err := os.Open(tmpfolder1path + "/scalastyle-output.xml")
+			if err != nil {
+				resultNumber = 10
+			}
+			doc1, err := xmlquery.Parse(f5)
+			if err != nil {
+				resultNumber = 10
+			}
+			expr4, err := xpath.Compile("count(//checkstyle//file//error[@severity='warning'])")
+			if err != nil {
+				resultNumber = 10
+			}
 			warningstyle := int(expr4.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
-			expr5, _ := xpath.Compile("count(//checkstyle//file//error[@severity='error'])")
+			expr5, err := xpath.Compile("count(//checkstyle//file//error[@severity='error'])")
+			if err != nil {
+				resultNumber = 10
+			}
 			errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
 
 			if sendemail {
-				sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username))
+				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+					resultNumber = 11
+				}
 			}
 			//Step 12 remove tmpfolders
 			defer os.RemoveAll(tmpfolderpath)
 			defer os.RemoveAll(tmpfolder1path)
-
-			fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
-		} else {
-			if sendemail {
-				sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username))
+			/*
+				1 : Cannot createTmpFile
+				2 : Cannot copy template
+				3 : Cannot copy unzip src to template copy
+				4 : Cannot copy unzip resources to template copy
+				5 : Cannot copy list all jar files
+				6 : Cannot copy all jar files
+				7 : Cannot generate maven pom.xml
+				8 : Cannot execute maven
+				9 : Cannot load surfire reports
+				10 : Cannot load scalastype report
+				11 : Cannot send an email
+			*/
+			switch resultNumber {
+			case 0:
+				fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
+			case 1:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot createTmpFile)<BR>")
+			case 2:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy template)<BR>")
+			case 3:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy unzip src to template copy)<BR>")
+			case 4:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy unzip resources to template copy)<BR>")
+			case 5:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy list all jar files)<BR>")
+			case 6:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy all jar files)<BR>")
+			case 7:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot generate maven pom.xml)<BR>")
+			case 8:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot execute maven)<BR>")
+			case 9:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot load or query surfire reports)<BR>")
+			case 10:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot load or query scalastype report)<BR>")
+			case 11:
+				fmt.Fprintf(w, "Cannot send the email<BR>")
+			default:
+				fmt.Fprintf(w, "default result %v", resultNumber)
 			}
-			fmt.Fprintf(w, "Upload réussi <BR>")
+		} else {
+			resultNumber := 0
+			if sendemail {
+				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+					resultNumber = 11
+				}
+			}
+			switch resultNumber {
+			case 0:
+				fmt.Fprintf(w, "Upload réussi <BR>")
+			case 11:
+				fmt.Fprintf(w, "Cannot send the email<BR>")
+			}
 		}
 
 	}
@@ -433,23 +539,28 @@ func sendEmail(body string, subj string, tos string) bool {
 	return true
 }
 
-func CopyFile(src, dst string) {
+func copyFile(src, dst string) bool {
 	from, err := os.Open(src)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
 	}
 	defer from.Close()
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
+		//		log.Fatal(err)
 	}
 	defer to.Close()
 
 	_, err = io.Copy(to, from)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
 	}
+	return true
 }
 
 // Unzip will decompress a zip archive, moving all files and folders
