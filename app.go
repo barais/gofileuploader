@@ -32,6 +32,7 @@ import (
 	"github.com/barais/ipfilter"
 	"github.com/otiai10/copy"
 	"gopkg.in/cas.v2"
+	"gopkg.in/ldap.v3"
 )
 
 //TODO
@@ -91,11 +92,11 @@ func main() {
 	options := ipfilter.NewOption(allowedScheduleO)
 
 	myProtectedHandler := ipfilter.Wrap(client.Handle(mux), *options)
+	log.Println(getMail("obarais"))
 
 	log.Printf("Serving %s on HTTP port: %s\n", *directory, *port)
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+*port, myProtectedHandler))
 	//log.Fatal(http.ListenAndServe("0.0.0.0:"+*port, client.Handle(mux)))
-
 }
 
 type templateBinding struct {
@@ -112,6 +113,8 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 		cas.RedirectToLogout(w, r)
 		return
 	}
+	log.Println(cas.Username(r))
+	//	ExampleConn_Search()
 	binding := &templateBinding{
 		Username:   cas.Username(r),
 		Attributes: cas.Attributes(r),
@@ -331,7 +334,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		expr5, _ := xpath.Compile("count(//checkstyle//file//error[@severity='error'])")
 		errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
 
-		sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", binding.Username+"@univ-rennes1.fr")
+		sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username))
 
 		//Step 12 remove tmpfolders
 		defer os.RemoveAll(tmpfolderpath)
@@ -344,7 +347,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 func sendEmail(body string, subj string, tos string) bool {
 	from := mail.Address{"Olivier Barais", "obarais@univ-rennes1.fr"}
 	to := mail.Address{"", tos}
-
+	log.Println(to)
 	// Setup headers
 	headers := make(map[string]string)
 	headers["From"] = from.String()
@@ -373,44 +376,44 @@ func sendEmail(body string, subj string, tos string) bool {
 	// from the very beginning (no starttls)
 	c, err := smtp.Dial(smtpserver)
 	if err != nil {
-		log.Panic(err)
+		log.Printf("could not connect to smtp server " + smtpserver)
 	}
 
 	c.StartTLS(tlsconfig)
 
 	// Auth
 	if err = c.Auth(auth); err != nil {
-		log.Panic(err)
+		log.Printf("Could not login to SMTP server")
 		return false
 	}
 
 	// To && From
 	if err = c.Mail(from.Address); err != nil {
-		log.Panic(err)
+		log.Printf("Bad from address")
 		return false
 	}
 
 	if err = c.Rcpt(to.Address); err != nil {
-		log.Panic(err)
+		log.Printf("Bad to address")
 		return false
 	}
 
 	// Data
 	w, err := c.Data()
 	if err != nil {
-		log.Panic(err)
+		//log.Panic(err)
 		return false
 	}
 
 	_, err = w.Write([]byte(message))
 	if err != nil {
-		log.Panic(err)
+		//log.Panic(err)
 		return false
 	}
 
 	err = w.Close()
 	if err != nil {
-		log.Panic(err)
+		//log.Panic(err)
 		return false
 	}
 
@@ -489,4 +492,38 @@ func Unzip(src string, dest string) ([]string, error) {
 		}
 	}
 	return filenames, nil
+}
+
+func getMail(uid string) string {
+	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.univ-rennes1.fr", 389))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer l.Close()
+	// Reconnect with TLS
+	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//15010426
+	searchRequest := ldap.NewSearchRequest(
+		"ou=People,dc=univ-rennes1,dc=fr", // The base dn to search
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		"(&(uid="+uid+"))", // The filter to apply
+		[]string{"mail"},   // A list attributes to retrieve
+		nil,
+	)
+
+	sr, err := l.Search(searchRequest)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, entry := range sr.Entries {
+		return entry.GetAttributeValue("mail")
+		//fmt.Printf("%s: %v\n", entry.DN, entry.GetAttributeValue("mail"))
+	}
+	//	fmt.Println("ok")
+	return "barais@irisa.fr"
 }

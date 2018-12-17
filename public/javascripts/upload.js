@@ -1,3 +1,5 @@
+
+
 $('.upload-btn').on('click', function (){
     $('#upload-input').click();
     $('.progress-bar').text('0%');
@@ -9,6 +11,8 @@ $('#upload-input').on('change', function(){
   var files = $(this).get(0).files;
 
   if (files.length > 0){
+    $("#myModal1").modal();
+
     // create a FormData object which will be sent as the data payload in the
     // AJAX request
     var formData = new FormData();
@@ -32,7 +36,8 @@ $('#upload-input').on('change', function(){
           if (data == 'Your file must be a zip file'){
             $('#progress-bar-upload1').text('0' + '%');
             $('#progress-bar-upload1').width('0' + '%');
-            window.alert("Your file must be a zip file")
+            $("#myModal1").modal('hide');
+            window.alert("Your file must be a zip file");
           }else{
             $('#progress-bar-test1').text('0' + '%');
             $('#progress-bar-test1').width('0' + '%');
@@ -40,10 +45,16 @@ $('#upload-input').on('change', function(){
             $('#progress-bar-test').html('done');
             console.log($('#myModal'));
             $('#mymodalbody').html('<p>'+data.replace(/\n/g, "<br />")+'</p>');
+            $("#myModal1").modal('hide');
+
             $("#myModal").modal();
 
  //            window.alert(data);
           }
+      },
+      error : function(resultat, statut, erreur){
+        $("#myModal1").modal('hide');
+        window.alert("Upload error");
       },
       xhr: function() {
         // create an XMLHttpRequest
