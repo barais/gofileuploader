@@ -22,6 +22,10 @@ import (
 
 	"github.com/thanhpk/randstr"
 
+	// To read password from standard input without echoing
+	"syscall"
+	"golang.org/x/crypto/ssh/terminal"
+
 	//"html/template"
 	"net/url"
 
@@ -68,7 +72,21 @@ func main() {
 	flag.Parse()
 	fileserver = http.FileServer(http.Dir(*directory))
 	login = *paramlogin
+
+	// Password initialisation for smtp
 	pass = *parampass
+	if pass=="" { 	// Reading password from standard input
+		fmt.Println("Enter your smtp password: ")
+		password, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			fmt.Println("Error while reading your smtp password")
+			fmt.Println(err)
+		}
+		pass = string(password)
+		if pass=="" {
+			fmt.Println("Error while reading your smtp password. Empty password.")
+		}
+	}
 	uploadfolder = *uploadfolderparam
 	mavenhome = *mavenhomeparam
 	templateProjectPath = *templateProjectPathparam
@@ -230,14 +248,14 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 			log.Printf("Step 1 done\n")
 
-			pathtmp, _ := filepath.Abs(templateProjectPath)
 			//Step 2: Copy template
+			pathtmp, _ := filepath.Abs(templateProjectPath)
 			err4 := copy.Copy(pathtmp, tmpfolder1path)
 			if err4 != nil {
 				resultNumber = 2
 				log.Printf("Cannot copy %s\n", err4)
 			}
-			//	log.Printf("Step 2 done\n")
+			log.Printf("Step 2 done\n")
 
 			//Step 3: identify folder
 			files, _ := ioutil.ReadDir(tmpfolderpath)
@@ -248,7 +266,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 					break
 				}
 			}
-			//	log.Printf("Step 3 done\n")
+			log.Printf("Step 3 done\n")
 
 			//Step 4: Copy unzip src to template
 			err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/src/", tmpfolder1path+"/src/main/scala/")
@@ -256,7 +274,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				resultNumber = 3
 				log.Printf("Cannot copy %s\n", err4)
 			}
-			//	log.Printf("Step 4 done\n")
+			log.Printf("Step 4 done\n")
 
 			//Step 6: Copy unzip resources to template
 			if _, err2 := os.Stat(tmpfolderpath + "/" + f1.Name() + "/img"); err2 == nil {
@@ -280,7 +298,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 					resultNumber = 6
 				}
 			}
-			//		log.Printf("Step 7 done\n")
+			log.Printf("Step 7 done\n")
 
 			//Step 8 generate pom.xml
 			//		var files = glob.sync(path.join(tmpfolder1.name  , '/lib/*.jar'));
@@ -310,7 +328,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				resultNumber = 7
 				log.Print(err3)
 			}
-			//		  log.Printf("Step 8 done\n")
+			log.Printf("Step 8 done\n")
 
 			//Step 9 Execute maven
 			var stdout, stderr bytes.Buffer
@@ -327,7 +345,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 			//fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
 			fmt.Printf("err:\n%s\n", errStr)
-			//		log.Printf("Step 9 done\n")
+			log.Printf("Step 9 done\n")
 
 			// Step 10 Check result and send them to IHM
 			ntests := 0
