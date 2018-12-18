@@ -147,7 +147,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		path := uploadfolder + "/" + binding.Username + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
-			return
+                // TODO - error message ?
+                       return
 		}
 		for {
 			buffer := make([]byte, 1000000)
