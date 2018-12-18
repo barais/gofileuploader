@@ -36,7 +36,6 @@ import (
 )
 
 //TODO
-// Filter by IP and time
 // manage maven crash
 
 var fileserver http.Handler
@@ -46,6 +45,9 @@ var uploadfolder string
 var mavenhome string
 var templateProjectPath string
 var smtpserver string
+var ldapserver string
+var sendemail bool
+var buildproject bool
 var ipfilterconfig string
 
 func main() {
@@ -59,6 +61,9 @@ func main() {
 	mavenhomeparam := flag.String("maven", "/opt/apache-maven-3.5.0/bin", "path to maven executable")
 	templateProjectPathparam := flag.String("templatePath", "templateProject", "path to the template project that contains tests and lib")
 	smtpserverparam := flag.String("smtpserver", "smtps.univ-rennes1.fr:587", "smtp server to use")
+	ldapserverparam := flag.String("ldapserver", "ldap.univ-rennes1.fr:389", "ldap server to use")
+	sendEmailparam := flag.Bool("sendemail", true, "Send an email")
+	buildProjectparam := flag.Bool("buildproject", true, "Build project")
 	ipfilterconfigparam := flag.String("ipfilterconfig", "ipfilter.json", "json file to configure ipfilter")
 	flag.Parse()
 	fileserver = http.FileServer(http.Dir(*directory))
@@ -68,6 +73,9 @@ func main() {
 	mavenhome = *mavenhomeparam
 	templateProjectPath = *templateProjectPathparam
 	smtpserver = *smtpserverparam
+	ldapserver = *ldapserverparam
+	sendemail = *sendEmailparam
+	buildproject = *buildProjectparam
 	ipfilterconfig = *ipfilterconfigparam
 	mux := http.NewServeMux()
 
@@ -80,9 +88,6 @@ func main() {
 	var allowedScheduleO []*ipfilter.IPInterval
 	json.Unmarshal([]byte(allowedSchedule), &allowedScheduleO)
 
-	//fmt.Println((allowedScheduleO[0]).AllowedIPs)
-	//fmt.Println(((allowedScheduleO[0]).Lower).String())
-
 	mux.HandleFunc("/", testCas)
 	url, _ := url.Parse(*casURL)
 	client := cas.NewClient(&cas.Options{
@@ -92,11 +97,9 @@ func main() {
 	options := ipfilter.NewOption(allowedScheduleO)
 
 	myProtectedHandler := ipfilter.Wrap(client.Handle(mux), *options)
-	log.Println(getMail("obarais"))
 
 	log.Printf("Serving %s on HTTP port: %s\n", *directory, *port)
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+*port, myProtectedHandler))
-	//log.Fatal(http.ListenAndServe("0.0.0.0:"+*port, client.Handle(mux)))
 }
 
 type templateBinding struct {
@@ -114,13 +117,10 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println(cas.Username(r))
-	//	ExampleConn_Search()
 	binding := &templateBinding{
 		Username:   cas.Username(r),
 		Attributes: cas.Attributes(r),
 	}
-	//log.Printf("username: %s\n", binding.Username)
-	//log.Printf("ip: %s\n", 	getRealAddr(r))
 	if r.URL.Path == "/upload" {
 		uploadProgress(w, r, binding)
 		return
@@ -192,156 +192,274 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			return
 		}
 
-		tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
-		if err != nil {
-			log.Fatal(err)
-		}
-		tmpfolder1, err := ioutil.TempDir("/tmp", binding.Username)
-		if err != nil {
-			log.Fatal(err)
-		}
+		if buildproject {
+			/*
+				1 : Cannot createTmpFile
+				2 : Cannot copy template
+				3 : Cannot copy unzip src to template copy
+				4 : Cannot copy unzip resources to template copy
+				5 : Cannot copy list all jar files
+				6 : Cannot copy all jar files
+				7 : Cannot generate maven pom.xml
+				8 : Cannot execute maven
+				9 : Cannot load surfire reports
+				10 : Cannot load scalastype report
+				11 : Cannot send an email
+			*/
+			resultNumber := 0
 
-		//Step 1: Unzip upload file
-		var tmpfolderpath, _ = filepath.Abs(tmpfolder)
-		var tmpfolder1path, _ = filepath.Abs(tmpfolder1)
-		log.Printf(tmpfolderpath + "\n")
-		log.Printf(tmpfolder1path + "\n")
+			tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
+			if err != nil {
+				resultNumber = 1
+				log.Print(err)
 
-		Unzip(path, tmpfolderpath)
-
-		log.Printf("Step 1 done\n")
-
-		pathtmp, _ := filepath.Abs(templateProjectPath)
-		//Step 2: Copy template
-		err4 := copy.Copy(pathtmp, tmpfolder1path)
-		if err4 != nil {
-			log.Fatalf("Cannot copy %s\n", err4)
-		}
-		//	log.Printf("Step 2 done\n")
-
-		//Step 3: identify folder
-		files, _ := ioutil.ReadDir(tmpfolderpath)
-		var f1 os.FileInfo
-		for _, f := range files {
-			if f.IsDir() {
-				f1 = f
-				break
 			}
-		}
-		//	log.Printf("Step 3 done\n")
+			tmpfolder1, err := ioutil.TempDir("/tmp", binding.Username)
+			if err != nil {
+				resultNumber = 1
+				log.Print(err)
+			}
 
-		//Step 4: Copy unzip src to template
-		err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/src/", tmpfolder1path+"/src/main/scala/")
-		if err4 != nil {
-			log.Fatalf("Cannot copy %s\n", err4)
-		}
-		//	log.Printf("Step 4 done\n")
+			//Step 1: Unzip upload file
+			var tmpfolderpath, _ = filepath.Abs(tmpfolder)
+			var tmpfolder1path, _ = filepath.Abs(tmpfolder1)
+			log.Printf(tmpfolderpath + "\n")
+			log.Printf(tmpfolder1path + "\n")
 
-		//Step 6: Copy unzip resources to template
-		if _, err2 := os.Stat(tmpfolderpath + "/" + f1.Name() + "/img"); err2 == nil {
-			err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/img", tmpfolder1path+"/src/main/resources/img")
+			Unzip(path, tmpfolderpath)
+
+			log.Printf("Step 1 done\n")
+
+			pathtmp, _ := filepath.Abs(templateProjectPath)
+			//Step 2: Copy template
+			err4 := copy.Copy(pathtmp, tmpfolder1path)
 			if err4 != nil {
-				log.Fatalf("Cannot copy %s\n", err4)
+				resultNumber = 2
+				log.Printf("Cannot copy %s\n", err4)
 			}
-			log.Printf("Step 6 done\n")
+			//	log.Printf("Step 2 done\n")
+
+			//Step 3: identify folder
+			files, _ := ioutil.ReadDir(tmpfolderpath)
+			var f1 os.FileInfo
+			for _, f := range files {
+				if f.IsDir() {
+					f1 = f
+					break
+				}
+			}
+			//	log.Printf("Step 3 done\n")
+
+			//Step 4: Copy unzip src to template
+			err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/src/", tmpfolder1path+"/src/main/scala/")
+			if err4 != nil {
+				resultNumber = 3
+				log.Printf("Cannot copy %s\n", err4)
+			}
+			//	log.Printf("Step 4 done\n")
+
+			//Step 6: Copy unzip resources to template
+			if _, err2 := os.Stat(tmpfolderpath + "/" + f1.Name() + "/img"); err2 == nil {
+				err4 = copy.Copy(tmpfolderpath+"/"+f1.Name()+"/img", tmpfolder1path+"/src/main/resources/img")
+				if err4 != nil {
+					resultNumber = 4
+					log.Printf("Cannot copy %s\n", err4)
+				}
+				log.Printf("Step 6 done\n")
+			}
+
+			//Step 7: Copy jar to lib
+			//history = child_process.execSync('cp -r '+ tmpfolder.name + '/'+dirProjet+'/*.jar '+tmpfolder1.name +'/lib/' , { encoding: 'utf8' });
+			files2, err := filepath.Glob(tmpfolderpath + "/" + f1.Name() + "/*.jar")
+			if err != nil {
+				resultNumber = 5
+				log.Print(err)
+			}
+			for _, jarfile := range files2 {
+				if !copyFile(jarfile, tmpfolder1path+"/lib/"+filepath.Base(jarfile)) {
+					resultNumber = 6
+				}
+			}
+			//		log.Printf("Step 7 done\n")
+
+			//Step 8 generate pom.xml
+			//		var files = glob.sync(path.join(tmpfolder1.name  , '/lib/*.jar'));
+			files1, err := filepath.Glob(tmpfolder1path + "/lib/*.jar")
+			if err != nil {
+				log.Fatal(err)
+				resultNumber = 5
+
+			}
+			replacement := ""
+			libn := 0
+			for _, f := range files1 {
+				replacement = replacement + "<dependency><artifactId>delfinelib" + fmt.Sprintf("%v", libn) + "</artifactId><groupId>delfinelib</groupId><version>1.0</version><scope>system</scope><systemPath>${project.basedir}/lib/" + filepath.Base(f) + "</systemPath></dependency>"
+				libn = libn + 1
+			}
+
+			readfile, err3 := ioutil.ReadFile(tmpfolder1path + "/pom.xml")
+			if err3 != nil {
+				resultNumber = 6
+				log.Print(err3)
+			}
+
+			newContents := strings.Replace(string(readfile), "<!--deps-->", replacement, -1)
+
+			err3 = ioutil.WriteFile(tmpfolder1path+"/pom.xml", []byte(newContents), 0)
+			if err3 != nil {
+				resultNumber = 7
+				log.Print(err3)
+			}
+			//		  log.Printf("Step 8 done\n")
+
+			//Step 9 Execute maven
+			var stdout, stderr bytes.Buffer
+			cmd := exec.Command(mavenhome+"/mvn", "-f", tmpfolder1path+"/pom.xml", "clean", "scalastyle:check", "test", "-Dmaven.test.failure.ignore=true")
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			err1 := cmd.Run()
+			if err1 != nil {
+				resultNumber = 8
+				log.Printf("cmd.Run() failed with %s\n", err1)
+			}
+			_, errStr := string(stdout.Bytes()), string(stderr.Bytes())
+			//_ = outStr
+
+			//fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
+			fmt.Printf("err:\n%s\n", errStr)
+			//		log.Printf("Step 9 done\n")
+
+			// Step 10 Check result and send them to IHM
+			ntests := 0
+			nerrors := 0
+			nskips := 0
+			nfailures := 0
+			_ = ntests
+			_ = nerrors
+			_ = nskips
+			_ = nfailures
+			files2, err6 := filepath.Glob(tmpfolder1path + "/target/surefire-reports/*.xml")
+			if err6 != nil {
+				resultNumber = 9
+				log.Print(err6)
+			}
+			for _, f3 := range files2 {
+				f4, err := os.Open(f3)
+				if err != nil {
+					resultNumber = 9
+				}
+				doc, err := xmlquery.Parse(f4)
+				if err != nil {
+					resultNumber = 9
+				}
+				expr, err := xpath.Compile("count(//testsuite//testcase)")
+				if err != nil {
+					resultNumber = 9
+				}
+				ntests = ntests + int(expr.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
+				expr1, err := xpath.Compile("count(//testsuite//testcase//failure)")
+				if err != nil {
+					resultNumber = 9
+				}
+				nfailures = nfailures + int(expr1.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
+				expr2, err := xpath.Compile("count(//testsuite//testcase//error)")
+				if err != nil {
+					resultNumber = 9
+				}
+				nerrors = nerrors + int(expr2.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
+				expr3, err := xpath.Compile("count(//testsuite//testcase//skipped)")
+				if err != nil {
+					resultNumber = 9
+				}
+				nskips = nskips + int(expr3.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
+
+				fmt.Printf("nbtest: %d\n", ntests)
+				_ = doc
+			}
+
+			f5, err := os.Open(tmpfolder1path + "/scalastyle-output.xml")
+			if err != nil {
+				resultNumber = 10
+			}
+			doc1, err := xmlquery.Parse(f5)
+			if err != nil {
+				resultNumber = 10
+			}
+			expr4, err := xpath.Compile("count(//checkstyle//file//error[@severity='warning'])")
+			if err != nil {
+				resultNumber = 10
+			}
+			warningstyle := int(expr4.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
+			expr5, err := xpath.Compile("count(//checkstyle//file//error[@severity='error'])")
+			if err != nil {
+				resultNumber = 10
+			}
+			errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
+
+			if sendemail {
+				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+					resultNumber = 11
+				}
+			}
+			//Step 12 remove tmpfolders
+			defer os.RemoveAll(tmpfolderpath)
+			defer os.RemoveAll(tmpfolder1path)
+			/*
+				1 : Cannot createTmpFile
+				2 : Cannot copy template
+				3 : Cannot copy unzip src to template copy
+				4 : Cannot copy unzip resources to template copy
+				5 : Cannot copy list all jar files
+				6 : Cannot copy all jar files
+				7 : Cannot generate maven pom.xml
+				8 : Cannot execute maven
+				9 : Cannot load surfire reports
+				10 : Cannot load scalastype report
+				11 : Cannot send an email
+			*/
+			switch resultNumber {
+			case 0:
+				fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
+			case 1:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot createTmpFile)<BR>")
+			case 2:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy template)<BR>")
+			case 3:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy unzip src to template copy)<BR>")
+			case 4:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy unzip resources to template copy)<BR>")
+			case 5:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy list all jar files)<BR>")
+			case 6:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot copy all jar files)<BR>")
+			case 7:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot generate maven pom.xml)<BR>")
+			case 8:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot execute maven)<BR>")
+			case 9:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot load or query surfire reports)<BR>")
+			case 10:
+				fmt.Fprintf(w, "Error during the build process <BR>(Cannot load or query scalastype report)<BR>")
+			case 11:
+				fmt.Fprintf(w, "Cannot send the email<BR>")
+			default:
+				fmt.Fprintf(w, "default result %v", resultNumber)
+			}
+		} else {
+			resultNumber := 0
+			if sendemail {
+				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+					resultNumber = 11
+				}
+			}
+			switch resultNumber {
+			case 0:
+				fmt.Fprintf(w, "Upload réussi <BR>")
+			case 11:
+				fmt.Fprintf(w, "Cannot send the email<BR>")
+			}
 		}
 
-		//Step 7: Copy jar to lib
-		//history = child_process.execSync('cp -r '+ tmpfolder.name + '/'+dirProjet+'/*.jar '+tmpfolder1.name +'/lib/' , { encoding: 'utf8' });
-		files2, err := filepath.Glob(tmpfolderpath + "/" + f1.Name() + "/*.jar")
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, jarfile := range files2 {
-			CopyFile(jarfile, tmpfolder1path+"/lib/"+filepath.Base(jarfile))
-		}
-		//		log.Printf("Step 7 done\n")
-
-		//Step 8 generate pom.xml
-		//		var files = glob.sync(path.join(tmpfolder1.name  , '/lib/*.jar'));
-		files1, err := filepath.Glob(tmpfolder1path + "/lib/*.jar")
-		if err != nil {
-			log.Fatal(err)
-		}
-		replacement := ""
-		libn := 0
-		for _, f := range files1 {
-			replacement = replacement + "<dependency><artifactId>delfinelib" + fmt.Sprintf("%v", libn) + "</artifactId><groupId>delfinelib</groupId><version>1.0</version><scope>system</scope><systemPath>${project.basedir}/lib/" + filepath.Base(f) + "</systemPath></dependency>"
-			libn = libn + 1
-		}
-
-		readfile, err3 := ioutil.ReadFile(tmpfolder1path + "/pom.xml")
-		if err3 != nil {
-			panic(err3)
-		}
-
-		newContents := strings.Replace(string(readfile), "<!--deps-->", replacement, -1)
-
-		err3 = ioutil.WriteFile(tmpfolder1path+"/pom.xml", []byte(newContents), 0)
-		if err3 != nil {
-			panic(err3)
-		}
-		//		  log.Printf("Step 8 done\n")
-
-		//Step 9 Execute maven
-		var stdout, stderr bytes.Buffer
-		cmd := exec.Command(mavenhome+"/mvn", "-f", tmpfolder1path+"/pom.xml", "clean", "scalastyle:check", "test", "-Dmaven.test.failure.ignore=true")
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		err1 := cmd.Run()
-		if err1 != nil {
-			log.Fatalf("cmd.Run() failed with %s\n", err1)
-		}
-		outStr, errStr := string(stdout.Bytes()), string(stderr.Bytes())
-		_ = outStr
-
-		//fmt.Printf("out:\n%s\nerr:\n%s\n", outStr, errStr)
-		fmt.Printf("err:\n%s\n", errStr)
-		//		log.Printf("Step 9 done\n")
-
-		// Step 10 Check result and send them to IHM
-		ntests := 0
-		nerrors := 0
-		nskips := 0
-		nfailures := 0
-		_ = ntests
-		_ = nerrors
-		_ = nskips
-		_ = nfailures
-		files2, err6 := filepath.Glob(tmpfolder1path + "/target/surefire-reports/*.xml")
-		if err6 != nil {
-			log.Fatal(err6)
-		}
-		for _, f3 := range files2 {
-			f4, _ := os.Open(f3)
-			doc, _ := xmlquery.Parse(f4)
-			expr, _ := xpath.Compile("count(//testsuite//testcase)")
-			ntests = ntests + int(expr.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-			expr1, _ := xpath.Compile("count(//testsuite//testcase//failure)")
-			nfailures = nfailures + int(expr1.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-			expr2, _ := xpath.Compile("count(//testsuite//testcase//error)")
-			nerrors = nerrors + int(expr2.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-			expr3, _ := xpath.Compile("count(//testsuite//testcase//skipped)")
-			nskips = nskips + int(expr3.Evaluate(xmlquery.CreateXPathNavigator(doc)).(float64))
-
-			fmt.Printf("nbtest: %d\n", ntests)
-			_ = doc
-		}
-
-		f5, _ := os.Open(tmpfolder1path + "/scalastyle-output.xml")
-		doc1, _ := xmlquery.Parse(f5)
-		expr4, _ := xpath.Compile("count(//checkstyle//file//error[@severity='warning'])")
-		warningstyle := int(expr4.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
-		expr5, _ := xpath.Compile("count(//checkstyle//file//error[@severity='error'])")
-		errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
-
-		sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username))
-
-		//Step 12 remove tmpfolders
-		defer os.RemoveAll(tmpfolderpath)
-		defer os.RemoveAll(tmpfolder1path)
-
-		fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
 	}
 }
 
@@ -422,23 +540,28 @@ func sendEmail(body string, subj string, tos string) bool {
 	return true
 }
 
-func CopyFile(src, dst string) {
+func copyFile(src, dst string) bool {
 	from, err := os.Open(src)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
 	}
 	defer from.Close()
 
 	to, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
+		//		log.Fatal(err)
 	}
 	defer to.Close()
 
 	_, err = io.Copy(to, from)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		return false
 	}
+	return true
 }
 
 // Unzip will decompress a zip archive, moving all files and folders
@@ -496,7 +619,7 @@ func Unzip(src string, dest string) ([]string, error) {
 }
 
 func getMail(uid string) string {
-	l, err := ldap.Dial("tcp", fmt.Sprintf("%s:%d", "ldap.univ-rennes1.fr", 389))
+	l, err := ldap.Dial("tcp", ldapserver) //fmt.Sprintf("%s:%d", "ldap.univ-rennes1.fr", 389))
 	if err != nil {
 		log.Fatal(err)
 	}
