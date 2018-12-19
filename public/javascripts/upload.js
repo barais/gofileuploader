@@ -37,7 +37,7 @@ $('#upload-input').on('change', function(){
             $('#progress-bar-upload1').text('0' + '%');
             $('#progress-bar-upload1').width('0' + '%');
             $("#myModal1").modal('hide');
-            window.alert("Your file must be a zip file");
+            window.alert("---- ERREUR ----- \n \n Le TP déposé doit être une archive ZIP. \n \n Vous devez recommencer l'opération.");
           }else{
             $('#progress-bar-test1').text('0' + '%');
             $('#progress-bar-test1').width('0' + '%');
