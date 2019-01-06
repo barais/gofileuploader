@@ -20,6 +20,9 @@ import (
 	"strings"
 	"time"
 
+	// Error handling
+	"errors"
+
 	"github.com/thanhpk/randstr"
 
 	// To read password from standard input without echoing
@@ -73,26 +76,30 @@ func main() {
 	fileserver = http.FileServer(http.Dir(*directory))
 	login = *paramlogin
 
-	// Password initialisation for smtp
-	pass = *parampass
-	if pass=="" { 	// Reading password from standard input
-		fmt.Println("Enter your smtp password: ")
-		password, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			fmt.Println("Error while reading your smtp password")
-			fmt.Println(err)
-		}
-		pass = string(password)
-		if pass=="" {
-			fmt.Println("Error while reading your smtp password. Empty password.")
-		}
-	}
 	uploadfolder = *uploadfolderparam
 	mavenhome = *mavenhomeparam
 	templateProjectPath = *templateProjectPathparam
 	smtpserver = *smtpserverparam
 	ldapserver = *ldapserverparam
 	sendemail = *sendEmailparam
+
+	// Password initialisation for smtp
+	pass = *parampass
+	if sendemail {
+		if pass=="" { 	// Reading password from standard input
+			fmt.Println("Enter your smtp password: ")
+			password, err := terminal.ReadPassword(int(syscall.Stdin))
+			if err != nil {
+				fmt.Println("Error while reading your smtp password")
+				fmt.Println(err)
+			}
+			pass = string(password)
+			if pass=="" {
+				fmt.Println("Error while reading your smtp password. Empty password.")
+			}
+		}
+	}
+
 	buildproject = *buildProjectparam
 	ipfilterconfig = *ipfilterconfigparam
 	mux := http.NewServeMux()
@@ -149,7 +156,9 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 
 func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
 	mr, err := r.MultipartReader()
+	resultNumber := 0
 	if err != nil {
+		resultNumber = -1
 		return
 	}
 	//    length := r.ContentLength
@@ -165,8 +174,11 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		path := uploadfolder + "/" + binding.Username + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
-                // TODO - error message ?
-                       return
+			log.Printf("Unable to create file "+ path)
+			log.Printf("Local directory " + uploadfolder + " probably unexisting.")
+			log.Printf("Please create one, and re-start server with option -u set to the created path.")
+			resultNumber = -1
+			return
 		}
 		for {
 			buffer := make([]byte, 1000000)
@@ -206,12 +218,12 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			os.Remove(path)
 			w.Header().Set("Content-Type", " text/html")
 			w.WriteHeader(200)
-			fmt.Fprint(w, "Your file must be a zip file")
+			fmt.Fprint(w, "Error. Your file must be a zip file")
 			return
 		}
 
 		if buildproject {
-			/*
+			/*     -1 : Internal error while initialization template project
 				1 : Cannot createTmpFile
 				2 : Cannot copy template
 				3 : Cannot copy unzip src to template copy
@@ -224,7 +236,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				10 : Cannot load scalastype report
 				11 : Cannot send an email
 			*/
-			resultNumber := 0
+			resultNumber = 0
 
 			tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
 			if err != nil {
@@ -337,8 +349,12 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			cmd.Stderr = &stderr
 			err1 := cmd.Run()
 			if err1 != nil {
+
 				resultNumber = 8
+
 				log.Printf("cmd.Run() failed with %s\n", err1)
+				fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+				fmt.Println(fmt.Sprint(err) + ": " + stdout.String())
 			}
 			_, errStr := string(stdout.Bytes()), string(stderr.Bytes())
 			//_ = outStr
@@ -415,7 +431,9 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
 
 			if sendemail {
-				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+				mailaddr,err := getMail(binding.Username)
+
+				if (err!=nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
 					resultNumber = 11
 				}
 			}
@@ -436,6 +454,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				11 : Cannot send an email
 			*/
 			switch resultNumber {
+			case -1: fmt.Fprintf(w, "Internal error during the upload process")
+
 			case 0:
 				fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
 			case 1:
@@ -459,22 +479,25 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			case 10:
 				fmt.Fprintf(w, "Error during the build process <BR>(Cannot load or query scalastype report)<BR>")
 			case 11:
-				fmt.Fprintf(w, "Cannot send the email<BR>")
+				fmt.Fprintf(w, "Error. cannot send the email<BR>")
 			default:
 				fmt.Fprintf(w, "default result %v", resultNumber)
 			}
 		} else {
-			resultNumber := 0
 			if sendemail {
-				if !sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", getMail(binding.Username)) {
+				mailaddr, err := getMail(binding.Username)
+
+				if (err!= nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
 					resultNumber = 11
 				}
 			}
 			switch resultNumber {
+			case -1:
+				fmt.Fprintf(w, "Internal error during the upload process")
 			case 0:
 				fmt.Fprintf(w, "Upload réussi <BR>")
 			case 11:
-				fmt.Fprintf(w, "Cannot send the email<BR>")
+				fmt.Fprintf(w, "Error. Cannot send the email<BR>")
 			}
 		}
 
@@ -508,12 +531,14 @@ func sendEmail(body string, subj string, tos string) bool {
 		ServerName:         host,
 	}
 
+
 	// Here is the key, you need to call tls.Dial instead of smtp.Dial
 	// for smtp servers running on 465 that require an ssl connection
 	// from the very beginning (no starttls)
 	c, err := smtp.Dial(smtpserver)
 	if err != nil {
 		log.Printf("could not connect to smtp server " + smtpserver)
+		return false
 	}
 
 	c.StartTLS(tlsconfig)
@@ -636,16 +661,18 @@ func Unzip(src string, dest string) ([]string, error) {
 	return filenames, nil
 }
 
-func getMail(uid string) string {
+func getMail(uid string) (string, error) {
+	deft:= "barais@irisa.fr"
+
 	l, err := ldap.Dial("tcp", ldapserver) //fmt.Sprintf("%s:%d", "ldap.univ-rennes1.fr", 389))
 	if err != nil {
-		log.Fatal(err)
+		return deft, err
 	}
 	defer l.Close()
 	// Reconnect with TLS
 	err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
 	if err != nil {
-		log.Fatal(err)
+		return deft, err
 	}
 
 	//15010426
@@ -659,13 +686,13 @@ func getMail(uid string) string {
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		log.Fatal(err)
+		return deft, err
 	}
 
 	for _, entry := range sr.Entries {
-		return entry.GetAttributeValue("mail")
+		return entry.GetAttributeValue("mail"), nil
 		//fmt.Printf("%s: %v\n", entry.DN, entry.GetAttributeValue("mail"))
 	}
 	//	fmt.Println("ok")
-	return "barais@irisa.fr"
+	return deft, errors.New("getMail : couldn't find student email address")
 }

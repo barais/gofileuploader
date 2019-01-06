@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
   <link href="css/styles.css" rel="stylesheet">
 </head>
+
 <body>
 
   <div class="container">
@@ -18,28 +19,7 @@
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Résultats</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div id="mymodalbody" class="modal-body">
-            <p>Modal body text goes here.</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
-          </div>
-        </div>
-      </div>
-    </div>
-<div id="myModal" class="modal fade" role="dialog">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
             <h5 class="modal-title">Résultat</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
           </div>
           <div id="mymodalbody" class="modal-body">
             <p>Modal body text goes here.</p>
@@ -51,43 +31,39 @@
       </div>
     </div>
 
-<div id="myModal1" class="modal fade" role="dialog">
+    <div id="myModal1" class="modal fade" role="dialog">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Patientez quelques instants</h5>
-            <!--<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>-->
           </div>
-          <div id="mymodalbody1" class="modal-body">  
-            <p> Dépôt et validation en cours.</br>
+          <div id="mymodalbody1" class="modal-body">
+            <div class="loader"></div>
+            <p> Dépôt et validation en cours.<BR>
               Merci de patienter.<BR>
-          </p>
+            </p>
           </div>
-          <!--<div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
-          </div>-->
         </div>
       </div>
     </div>
-
 
     <div class="row">
       <div class="col-xs-12">
         <div class="panel panel-default">
           <div class="panel-body">
-            <span class="glyphicon glyphicon-cloud-upload"></span>
+            <img src="img/LogoIsticFr.png" class="img-responsive" alt="ISTIC">
             <h2>SI2 - Rendu de TP noté</h2>
             <h4>istic.fr</h4>
+            <div>
+              <button class="btn btn-lg upload-btn" type="button">Déposer mon TP</button>
+            </div>
+            <BR>
             <div id="progress-bar-upload" class="progress">
               <div id="progress-bar-upload1" class="progress-bar" role="progressbar"></div>
             </div>
             <div id="progress-bar-test" class="progress">
               <div id="progress-bar-test1" class="progress-bar" role="progressbartp"></div>
             </div>
-
-            <button class="btn btn-lg upload-btn" type="button">Déposer mon TP</button>
           </div>
         </div>
       </div>
@@ -97,7 +73,7 @@
 
   </div>
 
-    <input id="upload-input" type="file" name="uploads" multiple="multiple">
+  <input id="upload-input" type="file" name="uploads" multiple="multiple">
 
 
 
