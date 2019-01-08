@@ -225,13 +225,15 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 		// Project info and report
 		projName,_ := os.Getwd()
-		log.Printf("Current reference name for project : %s\n ", filepath.Base(filepath.Dir(projName)))
+		projName = filepath.Base(filepath.Dir(projName))
+		log.Printf("Current reference name for project : %s\n ", projName)
 
 		preambule:= "Vous venez de déposer un TP sur l'interface en ligne de " + fmt.Sprintf("%s", projName) + ".\n\n"
 						
 		postambule := "Si besoin, et s'il est encore temps, vous pouvez réaliser un nouveau dépôt.\n\n" +
-			"Le nom du fichier sur le serveur est "+filepath.Base(path)+". \n\n" +
-			"Gardez trace de cet email en cas de litige.\n\n" +
+			"Le nom du fichier sur le serveur est "+filepath.Base(path)+". \n\n"
+		
+		mailpostambule:= "Gardez trace de cet email en cas de litige.\n\n" +
 			"Ceci est un mail automatique, merci de ne pas y répondre.\n\n" +
 			"Sincèrement,\n L'équipe pédagogique SI2"
 		
@@ -449,16 +451,17 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			
 			// Project info and report
 			report := "L'archive est valide, et votre projet peut être évalué.\n\n" +
-				"A titre indicatif, le projet compile et vous avez "+
-				fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+
-				fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\n"+
-				"De plus, vous avez " +
-				fmt.Sprintf("%v", warningstyle) + " warnings de Scalastyle et " + fmt.Sprintf("%v", errorstyle) + "erreur de Scalastyle.\n\n" 
+				"A titre indicatif, le projet compile et vous avez:\n "+
+				fmt.Sprintf("%v", nerrors)+" test(s) en erreur, \n"+fmt.Sprintf("%v", nfailures)+" test(s) en échec,\n "+
+				fmt.Sprintf("%v", nskips)+" non executé(s),\n sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\n"+
+				"De plus, vous avez:\n " +
+				fmt.Sprintf("%v", warningstyle) + " warning(s) de Scalastyle \n" +
+				fmt.Sprintf("%v", errorstyle) + " erreur(s) de Scalastyle.\n\n" 
 			
 			if sendemail {
 				mailaddr, err := getMail(binding.Username)
 				
-				if (err != nil) || (!sendEmail("Bonjour "+binding.Username+",\n\n" + preambule + report + postambule,
+				if (err != nil) || (!sendEmail("Bonjour "+binding.Username+",\n\n" + preambule + report + postambule + mailpostambule,
 					"Rendu TP " + fmt.Sprintf("%s", projName), mailaddr)) {
 					resultNumber = 11
 				}
@@ -484,7 +487,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				fmt.Fprintf(w, "Internal error during the upload process")
 
 			case 0:
-				fmt.Fprintf(w, report)
+				fmt.Fprintf(w, preambule + report + postambule)
 			case 1:
 				fmt.Fprintf(w, "Error during the build process <BR>(Cannot createTmpFile)<BR>")
 			case 2:
@@ -514,7 +517,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			if sendemail {
 				mailaddr, err := getMail(binding.Username)
 
-				if (err != nil) || (!sendEmail("Bonjour "+binding.Username+",\n\n" + preambule + postambule,
+				if (err != nil) || (!sendEmail("Bonjour "+binding.Username+",\n\n" + preambule + postambule + mailpostambule,
 					"Rendu TP " + fmt.Sprintf("%s", projName), mailaddr)) {
 					resultNumber = 11
 				}
@@ -523,7 +526,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			case -1:
 				fmt.Fprintf(w, "Internal error during the upload process")
 			case 0:
-				fmt.Fprintf(w, "Upload réussi <BR>")
+				fmt.Fprintf(w, preambule + postambule)
 			case 11:
 				fmt.Fprintf(w, "Error. Cannot send the email<BR>")
 			}
