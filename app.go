@@ -224,8 +224,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		}
 
 		// Project info and report
-		projName,_ := os.Getwd()
-		projName = filepath.Base(filepath.Dir(projName))
+		projName := filepath.Base(filepath.Dir(path))
 		log.Printf("Current reference name for project : %s\n ", projName)
 
 		preambule:= "Vous venez de déposer un TP sur l'interface en ligne de " + fmt.Sprintf("%s", projName) + ".\n\n"
@@ -450,13 +449,21 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			
 			
 			// Project info and report
-			report := "L'archive est valide, et votre projet peut être évalué.\n\n" +
+			report := ""
+
+			if (resultNumber == 0) {
+				report = "L'archive est valide, et votre projet peut être évalué.\n\n" +
 				"A titre indicatif, le projet compile et vous avez:\n "+
 				fmt.Sprintf("%v", nerrors)+" test(s) en erreur, \n"+fmt.Sprintf("%v", nfailures)+" test(s) en échec,\n "+
 				fmt.Sprintf("%v", nskips)+" non executé(s),\n sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\n"+
 				"De plus, vous avez:\n " +
 				fmt.Sprintf("%v", warningstyle) + " warning(s) de Scalastyle \n" +
 				fmt.Sprintf("%v", errorstyle) + " erreur(s) de Scalastyle.\n\n" 
+			} else {
+				report = "Votre dépôt est enregistré, mais l'archive n'est pas valide.\n\n" +
+					"Vérifiez que vous avez bien exporté le bon projet " +
+					"et que votre projet ne comporte plus d'erreurs de compilation.\n\n"
+			}
 			
 			if sendemail {
 				mailaddr, err := getMail(binding.Username)
