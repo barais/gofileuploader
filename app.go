@@ -27,6 +27,7 @@ import (
 
 	// To read password from standard input without echoing
 	"syscall"
+
 	"golang.org/x/crypto/ssh/terminal"
 
 	//"html/template"
@@ -86,7 +87,7 @@ func main() {
 	// Password initialisation for smtp
 	pass = *parampass
 	if sendemail {
-		if pass=="" { 	// Reading password from standard input
+		if pass == "" { // Reading password from standard input
 			fmt.Println("Enter your smtp password: ")
 			password, err := terminal.ReadPassword(int(syscall.Stdin))
 			if err != nil {
@@ -94,7 +95,7 @@ func main() {
 				fmt.Println(err)
 			}
 			pass = string(password)
-			if pass=="" {
+			if pass == "" {
 				fmt.Println("Error while reading your smtp password. Empty password.")
 			}
 		}
@@ -174,7 +175,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		path := uploadfolder + "/" + binding.Username + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
-			log.Printf("Unable to create file "+ path)
+			log.Printf("Unable to create file " + path)
 			log.Printf("Local directory " + uploadfolder + " probably unexisting.")
 			log.Printf("Please create one, and re-start server with option -u set to the created path.")
 			resultNumber = -1
@@ -224,27 +225,29 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 		if buildproject {
 			/*     -1 : Internal error while initialization template project
-				1 : Cannot createTmpFile
-				2 : Cannot copy template
-				3 : Cannot copy unzip src to template copy
-				4 : Cannot copy unzip resources to template copy
-				5 : Cannot copy list all jar files
-				6 : Cannot copy all jar files
-				7 : Cannot generate maven pom.xml
-				8 : Cannot execute maven
-				9 : Cannot load surfire reports
-				10 : Cannot load scalastype report
-				11 : Cannot send an email
+			1 : Cannot createTmpFile
+			2 : Cannot copy template
+			3 : Cannot copy unzip src to template copy
+			4 : Cannot copy unzip resources to template copy
+			5 : Cannot copy list all jar files
+			6 : Cannot copy all jar files
+			7 : Cannot generate maven pom.xml
+			8 : Cannot execute maven
+			9 : Cannot load surfire reports
+			10 : Cannot load scalastype report
+			11 : Cannot send an email
 			*/
 			resultNumber = 0
 
 			tmpfolder, err := ioutil.TempDir("/tmp", binding.Username)
+			//log.Print(tmpfolder)
 			if err != nil {
 				resultNumber = 1
 				log.Print(err)
 
 			}
 			tmpfolder1, err := ioutil.TempDir("/tmp", binding.Username)
+			//log.Print(tmpfolder1)
 			if err != nil {
 				resultNumber = 1
 				log.Print(err)
@@ -253,8 +256,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			//Step 1: Unzip upload file
 			var tmpfolderpath, _ = filepath.Abs(tmpfolder)
 			var tmpfolder1path, _ = filepath.Abs(tmpfolder1)
-			log.Printf(tmpfolderpath + "\n")
-			log.Printf(tmpfolder1path + "\n")
+			//log.Printf(tmpfolderpath + "\n")
+			//log.Printf(tmpfolder1path + "\n")
 
 			Unzip(path, tmpfolderpath)
 
@@ -431,9 +434,9 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			errorstyle := int(expr5.Evaluate(xmlquery.CreateXPathNavigator(doc1)).(float64))
 
 			if sendemail {
-				mailaddr,err := getMail(binding.Username)
+				mailaddr, err := getMail(binding.Username)
 
-				if (err!=nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
+				if (err != nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide, le projet compile et vous avez "+fmt.Sprintf("%v", nerrors)+" test(s) en erreur, "+fmt.Sprintf("%v", nfailures)+" test(s) en échec, "+fmt.Sprintf("%v", nskips)+" non executé(s), sur un total de "+fmt.Sprintf("%v", ntests)+" tests.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
 					resultNumber = 11
 				}
 			}
@@ -454,7 +457,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 				11 : Cannot send an email
 			*/
 			switch resultNumber {
-			case -1: fmt.Fprintf(w, "Internal error during the upload process")
+			case -1:
+				fmt.Fprintf(w, "Internal error during the upload process")
 
 			case 0:
 				fmt.Fprintf(w, "nombre de tests executés : "+fmt.Sprintf("%v", ntests)+"<BR>"+"nombre de tests en erreur : "+fmt.Sprintf("%v", nerrors)+"<BR>"+"nombre de tests non exécutés : "+fmt.Sprintf("%v", nskips)+"<BR>"+"nombre de tests en échec : "+fmt.Sprintf("%v", nfailures)+"<BR>"+"nombre de style (scalastyle) en warning : "+fmt.Sprintf("%v", warningstyle)+"<BR>"+"nombre de style (scalastyle) en erreur : "+fmt.Sprintf("%v", errorstyle)+"<BR>")
@@ -487,7 +491,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			if sendemail {
 				mailaddr, err := getMail(binding.Username)
 
-				if (err!= nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
+				if (err != nil) || (!sendEmail("Cher(e) "+binding.Username+"\n\nVous venez de charger un TP qui a été vérifié. L'archive est valide.\nGardez trace de cet email en cas de litige pour l'upload. Le nom du fichier sur le serveur est le "+path+".\nBonne journée. \n\nSincèrement/ \nL'équipe pédagogique", "Rendu tp", mailaddr)) {
 					resultNumber = 11
 				}
 			}
@@ -505,7 +509,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 }
 
 func sendEmail(body string, subj string, tos string) bool {
-	from := mail.Address{"Olivier Barais", "obarais@univ-rennes1.fr"}
+	from := mail.Address{"Responsable L1 SI2", "resp-l1-si2@univ-rennes1.fr"}
 	to := mail.Address{"", tos}
 	log.Println(to)
 	// Setup headers
@@ -530,7 +534,6 @@ func sendEmail(body string, subj string, tos string) bool {
 		InsecureSkipVerify: true,
 		ServerName:         host,
 	}
-
 
 	// Here is the key, you need to call tls.Dial instead of smtp.Dial
 	// for smtp servers running on 465 that require an ssl connection
@@ -662,7 +665,7 @@ func Unzip(src string, dest string) ([]string, error) {
 }
 
 func getMail(uid string) (string, error) {
-	deft:= "barais@irisa.fr"
+	deft := "barais@irisa.fr"
 
 	l, err := ldap.Dial("tcp", ldapserver) //fmt.Sprintf("%s:%d", "ldap.univ-rennes1.fr", 389))
 	if err != nil {
