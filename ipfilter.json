@@ -1,5 +1,10 @@
 [
 {
+    "lower": "01 Jan 18 08:00 CET",
+    "upper": "31 Dec 19 18:00 CET",
+    "allowedips": "*"
+},
+{
     "lower": "10 Jan 19 16:15 CET",
     "upper": "10 Jan 19 18:20 CET",
     "allowedips": "148.60.1.65-148.60.1.74"
@@ -69,4 +74,5 @@
     "upper": "11 Jan 19 16:05 CET",
     "allowedips": "148.60.1.33-148.60.1.42"
 }
+
 ]

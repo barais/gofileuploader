@@ -92,10 +92,7 @@ $('#upload-input').on('change', function(){
                       +       "<span class=\"glyphicon glyphicon-ok\" aria-hidden=\"true\" style=\"color:green\"></span>"
                       + "   </div>"
                       + "   <div class=\"col-md-10\">"
-                      +       '<p>' + "Le dépôt est réalisé, et votre TP peut être évalué." + '</p>'
-                      +       '<p>' + "Pour information :" + "<BR>"
-                      +               data.replace(/\n/g, "<BR>") + '</p>'
-                      +       '<p>' + "Si nécessaire, vous pouvez réaliser un autre dépôt." + '</p>'
+                      +       '<p>' + data.replace(/\n/g, "<BR>") + '</p>'
                       + "   </div>"
                       + "</div>"
                       + "</div>");
