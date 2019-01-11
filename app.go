@@ -54,7 +54,7 @@ var ldapserver string
 var sendemail bool
 var buildproject bool
 var ipfilterconfig string
-var ch amqp.Channel
+var ch *amqp.Channel
 var queue amqp.Queue
 var queuename string
 
@@ -70,7 +70,7 @@ func main() {
 	//	templateProjectPathparam := flag.String("templatePath", "templateProject", "path to the template project that contains tests and lib")
 	queuenameparam := flag.String("queue", "si2", "queue name to use")
 	smtpserverparam := flag.String("smtpserver", "smtps.univ-rennes1.fr:587", "smtp server to use")
-	amqpserverparam := flag.String("amqp", "amqp://guest:guest@localhost:5672/", "amqp server to use")
+	amqpserverparam := flag.String("amqp", "amqp://localhost:5672/", "amqp server to use")
 	ldapserverparam := flag.String("ldapserver", "ldap.univ-rennes1.fr:389", "ldap server to use")
 	sendEmailparam := flag.Bool("sendemail", true, "Send an email")
 	buildProjectparam := flag.Bool("buildproject", true, "Build project")
@@ -121,6 +121,7 @@ func main() {
 
 	mux.HandleFunc("/", testCas)
 	url, _ := url.Parse(*casURL)
+
 	client := cas.NewClient(&cas.Options{
 		URL: url,
 	})
@@ -135,7 +136,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	ch, err := conn.Channel()
+	ch, err = conn.Channel()
 	if err != nil {
 		log.Fatalf("Failed to open a channel: %s", err)
 	}
@@ -294,6 +295,9 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			11 : Cannot send an email
 		*/
 		fmt.Fprintf(w, preambule+report+postambule)
+		if mailaddr == "" {
+			mailaddr = "barais@irisa.fr"
+		}
 		if buildproject {
 			err = ch.Publish(
 				"",         // exchange
