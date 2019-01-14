@@ -84,7 +84,7 @@ $('#upload-input').on('change', function(){
               $('#progress-bar-test1').text('0' + '%');
               $('#progress-bar-test1').width('0' + '%');
               $('#progress-bar-upload').html('Dépôt effectué');
-              $('#progress-bar-test').html('Validation réalisée. Tests exécutés.');
+              $('#progress-bar-test').html('Validation zip réalisée.');
               $('#mymodalbody').html(
                   "<div class=\"alert alert-success\" role=\"alert\">"
                       + "<div class=\"row\">"
@@ -127,7 +127,7 @@ $('#upload-input').on('change', function(){
             // once the upload reaches 100%, set the progress bar text to done
             if (percentComplete === 100) {
               $('#progress-bar-upload').html('Dépôt effectué');
-              $('#progress-bar-test').html('Tests en cours d\'exécution');
+              $('#progress-bar-test').html('Validation en cours d\'exécution');
             }
 
           }

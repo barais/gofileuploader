@@ -132,26 +132,29 @@ func main() {
 
 	conn, err := amqp.Dial(amqpserver)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %s", err)
+		log.Printf("Failed to connect to RabbitMQ: %s", err)
 	}
 	defer conn.Close()
+	if conn != nil {
 
-	ch, err = conn.Channel()
-	if err != nil {
-		log.Fatalf("Failed to open a channel: %s", err)
+		ch, err = conn.Channel()
+		if err != nil {
+			log.Printf("Failed to open a channel: %s", err)
+		}
+		defer ch.Close()
 	}
-	defer ch.Close()
-
-	queue, err = ch.QueueDeclare(
-		queuename, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
-	if err != nil {
-		log.Fatalf("Failed to declare a queue: %s", err)
+	if conn != nil && ch != nil {
+		queue, err = ch.QueueDeclare(
+			queuename, // name
+			true,      // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			nil,       // arguments
+		)
+		if err != nil {
+			log.Printf("Failed to declare a queue: %s", err)
+		}
 	}
 
 	log.Printf("Serving %s on HTTP port: %s\n", *directory, *port)
@@ -269,8 +272,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		// Project info and report
 		report := ""
 
-		report = "L'archive est uploadé, elle est dans le pipe d'évaluation.\n\n" +
-			"A titre indicatif, vous recevrz un second email avec les éléments de validation dans la journée\n "
+		report = "L'archive est uploadée, elle est dans le pipe d'évaluation.\n\n" +
+			"A titre indicatif, vous receverez un second email avec les éléments de validation dans la journée\n "
 		mailaddr := ""
 		if sendemail {
 			mailaddr, err = getMail(binding.Username)
@@ -298,7 +301,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		if mailaddr == "" {
 			mailaddr = "barais@irisa.fr"
 		}
-		if buildproject {
+		if buildproject && ch != nil {
 			err = ch.Publish(
 				"",         // exchange
 				queue.Name, // routing key
@@ -310,7 +313,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 					Body:         []byte(path + ";" + mailaddr + ";" + binding.Username),
 				})
 			if err != nil {
-				log.Fatalf("Failed to publish a message: %s", err)
+				log.Printf("Failed to publish a message: %s", err)
 			}
 
 			log.Printf(" [x] Sent %s", "")
