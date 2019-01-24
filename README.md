@@ -108,7 +108,7 @@ Usage of ./gofileuploader:
 ```
 
 
-##  GoFileWorker
+## GoFileWorker
 
 
 ```bash
