@@ -20,13 +20,14 @@ The architecture is the following:
 The main features of the GoFileUploader module are the following:
 
 - Filter By IP And Date(Open app only for specific lab room and lab schedule)
-- Protection behind CAS
+- Student authentification with CAS
 - LDAP Connexion To get students Info Based on Cas login
 - Custom Html Page
 - Upload File
 - Check File (valid zip, min size, max size)
+- Send message to rabbitMQ server message bus
 - Send Email to Student
-- Provide Immediate Feedback
+- Provide Immediate Feedback to student
 
 
 ## GoFileWorker
@@ -108,6 +109,31 @@ Usage of ./gofileuploader:
     	comma-separated list of pattern=N settings for file-filtered logging
 
 ```
+
+**IPFilter config file**
+
+*ipfilter.json* support the following syntax. It is a list of period associated with a list of allowed IPs. 
+
+```js
+[
+{
+    "lower": "01 Jan 18 08:00 CET",
+    "upper": "31 Dec 19 18:00 CET",
+    "allowedips": "*"
+},
+{
+    "lower": "10 Jan 19 16:15 CET",
+    "upper": "10 Jan 19 18:20 CET",
+    "allowedips": "148.60.1.65-148.60.1.74"
+},
+{
+    "lower": "10 Jan 19 16:15 CET",
+    "upper": "10 Jan 19 18:20 CET",
+    "allowedips": "148.60.1.4"
+}
+]
+```
+
 
 ## GoFileWorker
 
@@ -245,4 +271,14 @@ server {
 ```
 
 
-An example of HTTP502 is available [here](https://github.com/barais/gofileuploader/tree/master/nginxerrorpage) 
+An example of HTTP502 is available [here](https://github.com/barais/gofileuploader/tree/master/nginxerrorpage)
+
+
+
+
+# TODO list
+
+[] Provide docker compose to ease the deployement
+[] Provide documenation to use [traefik](https://docs.traefik.io/) to replace nginx. 
+[] Provide documenation to use rabbitmq cluster. 
+[] Provide documenation to create your own worker for your technology (goLang, TypeScript, ...) .  
