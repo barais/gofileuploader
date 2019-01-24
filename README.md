@@ -1,6 +1,6 @@
 # Project overview
 
-This project provides an infrastructure for rendering and automatic evaluation of lab work in computer science. 
+This project provides an infrastructure for automatic evaluation of lab work in computer science. 
 
 This project is developed using GoLang.
 
