@@ -28,7 +28,8 @@ The main features of the GoFileUploader module are the following:
 - Send Email to Student
 - Provide Immediate Feedback
 
-## GoFileWorker
+
+## GoFileWorker
 
 The main features of the GoFileWorker module are the following:
 
