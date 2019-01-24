@@ -6,7 +6,7 @@ This project is developed using GoLang.
 
 It consists of a [library](https://github.com/barais/ipfilter/) to open the web application based on a set of IP addresses and time range, a [module](https://github.com/barais/gofileuploader/) to provide a web application to allow project loading and a [module](https://github.com/barais/gomavenworker/) to evaluate student projects.
 
-sIt uses rabbitmq for communication between the different modules.  
+It uses [rabbitmq server](https://www.rabbitmq.com/) for communication between the different modules.  
 
 The architecture is the following:
 
