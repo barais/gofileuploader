@@ -14,7 +14,8 @@ The architecture is the following:
 
 # Architecture overview
 
-## GoFileUploader
+
+## GoFileUploader
 
 The main features of the GoFileUploader module are the following:
 
@@ -106,7 +107,6 @@ Usage of ./gofileuploader:
     	comma-separated list of pattern=N settings for file-filtered logging
 
 ```
-
 
 ## GoFileWorker
 
