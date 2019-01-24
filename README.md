@@ -2,9 +2,9 @@
 
 This project provides an infrastructure for automatic evaluation of lab work in computer science. 
 
-This project is developed using GoLang.
+This project is developed using [GoLang](https://golang.org/).
 
-It consists of a [library](https://github.com/barais/ipfilter/) to open the web application based on a set of IP addresses and time range, a [module](https://github.com/barais/gofileuploader/) to provide a web application to allow project loading and a [module](https://github.com/barais/gomavenworker/) to evaluate student projects.
+It consists of a [library](https://github.com/barais/ipfilter/) to open the web application based on a set of IP addresses and time range, a [module](https://github.com/barais/gofileuploader/) to provide a web application to allow project loading and a [module](https://github.com/barais/gofileworker/) to evaluate student projects.
 
 It uses [rabbitmq server](https://www.rabbitmq.com/) for communication between the different modules.  
 
@@ -34,13 +34,14 @@ The main features of the GoFileUploader module are the following:
 
 The main features of the GoFileWorker module are the following:
 
+- listen to rabbitMQ server message bus
 - Uncompress file
 - Create valid maven project based on template
 - Build project using maven
 - Check style using Maven
 - Run tests (come from maven template) using Maven
-- Analyze tests and checkstyle results 
-      (query output file using XQuery)
+- Analyze surfire tests report and scalastyle/checkstyle results 
+  - (query output file using XQuery)
 - Compute Grade
 - Send an Email with result to students
 - Save outputs in CSV
