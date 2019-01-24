@@ -44,7 +44,7 @@ The main features of the GoFileWorker module are the following:
 
 # Installation
 
-##  GoFileUploader
+## GoFileUploader
 
 ```bash
 git get github.com/barais/gofileuploader
