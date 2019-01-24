@@ -278,7 +278,7 @@ An example of HTTP502 is available [here](https://github.com/barais/gofileupload
 
 # TODO list
 
-[] Provide docker compose to ease the deployement
-[] Provide documenation to use [traefik](https://docs.traefik.io/) to replace nginx. 
-[] Provide documenation to use rabbitmq cluster. 
-[] Provide documenation to create your own worker for your technology (goLang, TypeScript, ...) .  
+- [ ] Provide docker compose to ease the deployement
+- [ ] Provide documenation to use [traefik](https://docs.traefik.io/) to replace nginx. 
+- [ ] Provide documenation to use rabbitmq cluster. 
+- [ ] Provide documenation to create your own worker for your technology (goLang, TypeScript, ...)  .  
