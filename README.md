@@ -216,7 +216,7 @@ sudo service rabbitmq-server restart
 
 ## nginx
 
-sample of nginx proxy. Change APP.yourappdomainname.fr with your app domain. Use letsencrypt if you need https. 
+sample of nginx proxy. Change APP.yourappdomainname.fr with your app domain. Use [letsencrypt](https://letsencrypt.org/) if you need https endpoint. 
 
 
 ```bash
