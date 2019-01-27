@@ -14,6 +14,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	// Error handling
@@ -54,9 +55,11 @@ var ldapserver string
 var sendemail bool
 var buildproject bool
 var ipfilterconfig string
+var zipfilesconfig string
 var ch *amqp.Channel
 var queue amqp.Queue
 var queuename string
+var zipScheduleO []FileInterval
 
 func main() {
 	port := flag.String("p", "8080", "port to serve on")
@@ -75,6 +78,8 @@ func main() {
 	sendEmailparam := flag.Bool("sendemail", true, "Send an email")
 	buildProjectparam := flag.Bool("buildproject", true, "Build project")
 	ipfilterconfigparam := flag.String("ipfilterconfig", "ipfilter.json", "json file to configure ipfilter")
+	zipfilesconfigparam := flag.String("zipfilesconfig", "zipfilesconfig.json", "json file to configure zipfilestoprovide")
+
 	flag.Parse()
 	fileserver = http.FileServer(http.Dir(*directory))
 	login = *paramlogin
@@ -108,6 +113,7 @@ func main() {
 
 	buildproject = *buildProjectparam
 	ipfilterconfig = *ipfilterconfigparam
+	zipfilesconfig = *zipfilesconfigparam
 	mux := http.NewServeMux()
 
 	ipfilterconfigfile, err := os.Open(ipfilterconfig)
@@ -119,6 +125,15 @@ func main() {
 	var allowedScheduleO []*ipfilter.IPInterval
 	json.Unmarshal([]byte(allowedSchedule), &allowedScheduleO)
 
+	zipfilesconfigfile, err := os.Open(zipfilesconfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer zipfilesconfigfile.Close()
+	zipSchedule, err := ioutil.ReadAll(zipfilesconfigfile)
+	json.Unmarshal([]byte(zipSchedule), &zipScheduleO)
+
+	log.Printf("Nombre de slot %s : %d ", zipfilesconfig, len(zipScheduleO))
 	mux.HandleFunc("/", testCas)
 	url, _ := url.Parse(*casURL)
 
@@ -184,8 +199,109 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 		uploadProgress(w, r, binding)
 		return
 	}
+	if r.URL.Path == "/cp2.zip" {
+		getZip(w, r, binding)
+		return
+	}
 
 	fileserver.ServeHTTP(w, r)
+}
+
+type FileInterval struct {
+	Lower       *time.Time
+	Upper       *time.Time
+	fileToServe string
+}
+
+func (l *FileInterval) UnmarshalJSON(j []byte) error {
+	var rawStrings map[string]string
+
+	err := json.Unmarshal(j, &rawStrings)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range rawStrings {
+		if strings.ToLower(k) == "lower" {
+			t, err := time.Parse(time.RFC822, v)
+			if err != nil {
+				return err
+			}
+			l.Lower = &t
+
+		}
+		if strings.ToLower(k) == "upper" {
+			t, err := time.Parse(time.RFC822, v)
+			if err != nil {
+				return err
+			}
+			l.Upper = &t
+
+		}
+		if strings.ToLower(k) == "file" {
+			l.fileToServe = v
+		}
+	}
+
+	return nil
+}
+
+func getZip(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
+	log.Printf("nombre de slot : %d", len(zipScheduleO))
+
+	for i := 0; i < len(zipScheduleO); i++ {
+		if time.Now().Before(*zipScheduleO[i].Upper) && time.Now().After(*zipScheduleO[i].Lower) {
+			w.Header().Add("Content-Disposition", "Attachment")
+			w.Header().Set("Content-Type", "application/zip")
+
+			zipfile, err := os.Open(zipScheduleO[i].fileToServe)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer zipfile.Close()
+			zipfilebyt, err := ioutil.ReadAll(zipfile)
+			w.Write(zipfilebyt)
+			return
+		}
+	}
+	log.Println("pass par là")
+
+	w.WriteHeader(403)
+	fmt.Fprint(w, "<!DOCTYPE html>"+
+		"<html lang=\"en\">"+
+		"<head>"+
+		"<!-- Simple HttpErrorPages | MIT License | https://github.com/AndiDittrich/HttpErrorPages -->"+
+		"<meta charset=\"utf-8\" /><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"+
+		"<title>Application closed</title>"+
+		"<style type=\"text/css\">/*! normalize.css v5.0.0 | MIT License | github.com/necolas/normalize.css */html{font-family:sans-serif;line-height:1.15;-ms-text-si"+
+		"ze-adjust:100%;-webkit-text-size-adjust:100%}body{margin:0}article,aside,footer,header,nav,section{display:block}h1{font-size:2em;margin:.67em 0}figcaption,fig"+
+		"ure,main{display:block}figure{margin:1em 40px}hr{box-sizing:content-box;height:0;overflow:visible}pre{font-family:monospace,monospace;font-size:1em}a{backgroun"+
+		"d-color:transparent;-webkit-text-decoration-skip:objects}a:active,a:hover{outline-width:0}abbr[title]{border-bottom:none;text-decoration:underline;text-decorat"+
+		"ion:underline dotted}b,strong{font-weight:inherit}b,strong{font-weight:bolder}code,kbd,samp{font-family:monospace,monospace;font-size:1em}dfn{font-style:italic"+
+		"}mark{background-color:#ff0;color:#000}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{"+
+		"top:-.5em}audio,video{display:inline-block}audio:not([controls]){display:none;height:0}img{border-style:none}svg:not(:root){overflow:hidden}button,input,optgro"+
+		"up,select,textarea{font-family:sans-serif;font-size:100%;line-height:1.15;margin:0}button,input{overflow:visible}button,select{text-transform:none}[type=reset]"+
+		",[type=submit],button,html [type=button]{-webkit-appearance:button}[type=button]::-moz-focus-inner,[type=reset]::-moz-focus-inner,[type=submit]::-moz-focus-inn"+
+		"er,button::-moz-focus-inner{border-style:none;padding:0}[type=button]:-moz-focusring,[type=reset]:-moz-focusring,[type=submit]:-moz-focusring,button:-moz-focus"+
+		"ring{outline:1px dotted ButtonText}fieldset{border:1px solid silver;margin:0 2px;padding:.35em .625em .75em}legend{box-sizing:border-box;color:inherit;display:"+
+		"table;max-width:100%;padding:0;white-space:normal}progress{display:inline-block;vertical-align:baseline}textarea{overflow:auto}[type=checkbox],[type=radio]{box"+
+		"-sizing:border-box;padding:0}[type=number]::-webkit-inner-spin-button,[type=number]::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:tex"+
+		"tfield;outline-offset:-2px}[type=search]::-webkit-search-cancel-button,[type=search]::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-b"+
+		"utton{-webkit-appearance:button;font:inherit}details,menu{display:block}summary{display:list-item}canvas{display:inline-block}template{display:none}[hidden]{di"+
+		"splay:none}/*! Simple HttpErrorPages | MIT X11 License | https://github.com/AndiDittrich/HttpErrorPages */body,html{width:100%;height:100%;background-color:#21"+
+		"232a}body{color:#fff;text-align:center;text-shadow:0 2px 4px rgba(0,0,0,.5);padding:0;min-height:100%;-webkit-box-shadow:inset 0 0 100px rgba(0,0,0,.8);box-sha"+
+		"dow:inset 0 0 100px rgba(0,0,0,.8);display:table;font-family:\"Open Sans\",Arial,sans-serif}h1{font-family:inherit;font-weight:500;line-height:1.1;color:inherit;"+
+		"font-size:36px}h1 small{font-size:68%;font-weight:400;line-height:1;color:#777}a{text-decoration:none;color:#fff;font-size:inherit;border-bottom:dotted 1px #70"+
+		"7070}.lead{color:silver;font-size:21px;line-height:1.4}.cover{display:table-cell;vertical-align:middle;padding:0 20px}footer{position:fixed;width:100%;height:4"+
+		"0px;left:0;bottom:0;color:#a0a0a0;font-size:14px}</style>"+
+		"</head>"+
+		"<body>"+
+		"<div class=\"cover\"><h1>L'application de rendu de TPs n'est pas ouverte pour le moment à cette URL <BR> <small>mauvais horaire ou mauvaise IP</small></h1><p class=\"lead\">N'hésitez pa"+
+		"s à contacter votre correspondant de TP si cette situation n'est pas normale</p></div>"+
+		"</body>"+
+		"</html>", http.StatusForbidden)
+	return
+
 }
 
 func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
