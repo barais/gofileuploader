@@ -199,7 +199,7 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 		uploadProgress(w, r, binding)
 		return
 	}
-	if r.URL.Path == "/cp2.zip" {
+	if r.URL.Path == "/CP2.zip" {
 		getZip(w, r, binding)
 		return
 	}
@@ -264,7 +264,6 @@ func getZip(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
 			return
 		}
 	}
-	log.Println("pass par là")
 
 	w.WriteHeader(403)
 	fmt.Fprint(w, "<!DOCTYPE html>"+
@@ -388,7 +387,7 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		// Project info and report
 		report := ""
 
-		report = "L'archive est uploadée, elle est dans le pipe d'évaluation.\n\n" +
+		report = "L'archive est uploadée, elle est en cours d'évaluation.\n\n" +
 			"A titre indicatif, vous receverez un second email avec les éléments de validation dans la journée\n "
 		mailaddr := ""
 		if sendemail {

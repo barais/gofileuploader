@@ -127,7 +127,7 @@ $('#upload-input').on('change', function(){
             // once the upload reaches 100%, set the progress bar text to done
             if (percentComplete === 100) {
               $('#progress-bar-upload').html('Dépôt effectué');
-              $('#progress-bar-test').html('Validation en cours d\'exécution');
+              $('#progress-bar-test').html('');
             }
 
           }
