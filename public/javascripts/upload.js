@@ -24,6 +24,8 @@ $('#upload-input').on('change', function(){
       // add the files to formData object for the data payload
       formData.append('uploads[]', file, file.name);
     }
+    formData.append('binome', $("#binome").val());
+
 
     $.ajax({
       url: '/upload',

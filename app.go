@@ -53,6 +53,7 @@ var smtpserver string
 var amqpserver string
 var ldapserver string
 var sendemail bool
+var binome bool
 var buildproject bool
 var ipfilterconfig string
 var zipfilesconfig string
@@ -76,6 +77,7 @@ func main() {
 	amqpserverparam := flag.String("amqp", "amqp://localhost:5672/", "amqp server to use")
 	ldapserverparam := flag.String("ldapserver", "ldap.univ-rennes1.fr:389", "ldap server to use")
 	sendEmailparam := flag.Bool("sendemail", true, "Send an email")
+	binomeparam := flag.Bool("binome", false, "Send Binome Name within the post message")
 	buildProjectparam := flag.Bool("buildproject", true, "Build project")
 	ipfilterconfigparam := flag.String("ipfilterconfig", "ipfilter.json", "json file to configure ipfilter")
 	zipfilesconfigparam := flag.String("zipfilesconfig", "zipfilesconfig.json", "json file to configure zipfilestoprovide")
@@ -93,6 +95,7 @@ func main() {
 	ldapserver = *ldapserverparam
 	queuename = *queuenameparam
 	sendemail = *sendEmailparam
+	binome = *binomeparam
 
 	// Password initialisation for smtp
 	pass = *parampass
@@ -315,18 +318,38 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		if err == io.EOF {
 			break
 		}
+		part1, err := mr.NextPart()
+
+		buffer1 := make([]byte, 1000000)
+		cBytes1, err := part1.Read(buffer1)
+		binomename := fmt.Sprintf("%s", buffer1[0:cBytes1])
+		binomefinal := strings.Replace(binomename, " ", "", -1)
+		binomefinal = strings.Replace(binomefinal, "ç", "c", -1)
+		binomefinal = strings.Replace(binomefinal, "é", "e", -1)
+		binomefinal = strings.Replace(binomefinal, "è", "e", -1)
+		binomefinal = strings.Replace(binomefinal, "ê", "e", -1)
+		binomefinal = strings.Replace(binomefinal, "ô", "o", -1)
+		binomefinal = strings.Replace(binomefinal, "î", "i", -1)
+		binomefinal = strings.Replace(binomefinal, "à", "a", -1)
+		binomefinal = strings.Replace(binomefinal, "ù", "u", -1)
+
 		token := randstr.String(24) // generate a random 16 character length string
 		timestamp := time.Now().Format("20060102150405")
 		var read int64
 		//		var p float32
-		path := uploadfolder + "/" + binding.Username + "_" + timestamp + "_" + token + ".zip"
+
+		bindingname := strings.Replace(binding.Username, " ", "", -1)
+
+		if binome {
+			bindingname = bindingname + "_" + binomefinal
+		}
+		path := uploadfolder + "/" + bindingname + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			log.Printf("Unable to create file " + path)
 			log.Printf("Local directory " + uploadfolder + " probably unexisting.")
 			log.Printf("Please create one, and re-start server with option -u set to the created path.")
 			fmt.Fprint(w, "Error on server, please contact your admin\n")
-
 			return
 		}
 		for {
