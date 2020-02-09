@@ -6,6 +6,16 @@ $('.upload-btn').on('click', function (){
     $('.progress-bar').width('0%');
 });
 
+$.ajax({
+  url: '/casusername',
+  type: 'GET',
+  contentType: false,
+  success: function(data) {
+    $('#logincas').text(data.split('\n')[0]);
+  }
+});
+
+
 $('#upload-input').on('change', function(){
 
   var files = $(this).get(0).files;
