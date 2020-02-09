@@ -202,7 +202,16 @@ func testCas(w http.ResponseWriter, r *http.Request) {
 		uploadProgress(w, r, binding)
 		return
 	}
+	if r.URL.Path == "/casusername" {
+		casUsername(w, r, binding)
+		return
+	}
+
 	if r.URL.Path == "/CP2.zip" {
+		getZip(w, r, binding)
+		return
+	}
+	if r.URL.Path == "/CP3.zip" {
 		getZip(w, r, binding)
 		return
 	}
@@ -247,6 +256,14 @@ func (l *FileInterval) UnmarshalJSON(j []byte) error {
 	}
 
 	return nil
+}
+
+func casUsername(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
+
+	//w.WriteHeader(200)
+	fmt.Fprint(w, ""+binding.Username+"\n", http.StatusOK)
+	return
+
 }
 
 func getZip(w http.ResponseWriter, r *http.Request, binding *templateBinding) {
@@ -318,31 +335,13 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 		if err == io.EOF {
 			break
 		}
-		part1, err := mr.NextPart()
-
-		buffer1 := make([]byte, 1000000)
-		cBytes1, err := part1.Read(buffer1)
-		binomename := fmt.Sprintf("%s", buffer1[0:cBytes1])
-		binomefinal := strings.Replace(binomename, " ", "", -1)
-		binomefinal = strings.Replace(binomefinal, "ç", "c", -1)
-		binomefinal = strings.Replace(binomefinal, "é", "e", -1)
-		binomefinal = strings.Replace(binomefinal, "è", "e", -1)
-		binomefinal = strings.Replace(binomefinal, "ê", "e", -1)
-		binomefinal = strings.Replace(binomefinal, "ô", "o", -1)
-		binomefinal = strings.Replace(binomefinal, "î", "i", -1)
-		binomefinal = strings.Replace(binomefinal, "à", "a", -1)
-		binomefinal = strings.Replace(binomefinal, "ù", "u", -1)
 
 		token := randstr.String(24) // generate a random 16 character length string
 		timestamp := time.Now().Format("20060102150405")
-		var read int64
 		//		var p float32
 
 		bindingname := strings.Replace(binding.Username, " ", "", -1)
 
-		if binome {
-			bindingname = bindingname + "_" + binomefinal
-		}
 		path := uploadfolder + "/" + bindingname + "_" + timestamp + "_" + token + ".zip"
 		dst, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
@@ -352,6 +351,8 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			fmt.Fprint(w, "Error on server, please contact your admin\n")
 			return
 		}
+		var read int64
+
 		for {
 			buffer := make([]byte, 1000000)
 			cBytes, err := part.Read(buffer)
@@ -394,6 +395,26 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 			return
 		}
 
+		if binome {
+			log.Println("ok pour binome")
+			part1, _ := mr.NextPart()
+			buffer1 := make([]byte, 1000000)
+			cBytes1, _ := part1.Read(buffer1)
+			binomename := fmt.Sprintf("%s", buffer1[0:cBytes1])
+			binomefinal := strings.Replace(binomename, " ", "", -1)
+			binomefinal = strings.Replace(binomefinal, "ç", "c", -1)
+			binomefinal = strings.Replace(binomefinal, "é", "e", -1)
+			binomefinal = strings.Replace(binomefinal, "è", "e", -1)
+			binomefinal = strings.Replace(binomefinal, "ê", "e", -1)
+			binomefinal = strings.Replace(binomefinal, "ô", "o", -1)
+			binomefinal = strings.Replace(binomefinal, "î", "i", -1)
+			binomefinal = strings.Replace(binomefinal, "à", "a", -1)
+			binomefinal = strings.Replace(binomefinal, "ù", "u", -1)
+			bindingname = bindingname + "_" + binomefinal
+			//			log.Println(binomefinal)
+			os.Rename(path, uploadfolder+"/"+bindingname+"_"+timestamp+"_"+token+".zip")
+		}
+
 		// Project info and report
 		projName := filepath.Base(filepath.Dir(path))
 		log.Printf("Current reference name for project : %s\n ", projName)
@@ -409,9 +430,12 @@ func uploadProgress(w http.ResponseWriter, r *http.Request, binding *templateBin
 
 		// Project info and report
 		report := ""
-
-		report = "L'archive est uploadée, elle est en cours d'évaluation.\n\n" +
-			"A titre indicatif, vous receverez un second email avec les éléments de validation dans la journée\n "
+		if buildproject {
+			report = "L'archive est uploadée, elle est en cours d'évaluation.\n\n" +
+				"A titre indicatif, vous receverez un second email avec les éléments de validation dans la journée\n "
+		} else {
+			report = "L'archive est uploadée\n"
+		}
 		mailaddr := ""
 		if sendemail {
 			mailaddr, err = getMail(binding.Username)
